@@ -230,8 +230,8 @@ function resetRally() {
   debugText = "";
   
   // Reset player positions randomly within their boundaries
-  player1 = floor(random(player1MinPos, player1MaxPos + 1));
-  player2 = floor(random(player2MinPos, player2MaxPos + 1));
+  player1 = floor(random(player1MinPos, player1MaxPos -5));
+  player2 = floor(random(player2MinPos + 5, player2MaxPos + 1));
   
   if (firstRally) {
     ballDirection = random() < 0.5 ? -1 : 1;
