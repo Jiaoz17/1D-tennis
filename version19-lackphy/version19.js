@@ -4,8 +4,8 @@ let player1 = 5;
 let player2 = 20;   
 // Add movement limits for players
 let player1MinPos = 2;
-let player1MaxPos = 8;
-let player2MinPos = 17;
+let player1MaxPos = 12;
+let player2MinPos = 13;
 let player2MaxPos = 23;
 
 let ball = 0;      
