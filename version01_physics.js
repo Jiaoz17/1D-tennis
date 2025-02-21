@@ -36,18 +36,25 @@ let lPressed = false;
 let debugText = "";
 
 function setup() {
-  createCanvas(520, 60);  
+  // Make the canvas full width and 100px high
+  createCanvas(windowWidth, 100);
   textSize(16);
   frameRate(30);
   resetRally();
 }
 
+// Optional: Resize canvas automatically if the browser window changes
+function windowResized() {
+  resizeCanvas(windowWidth, 100);
+}
+
 function draw() {
   background(61, 145, 35);
   
-  // Only draw court if game is not over
+  // Only draw court & update player positions if game is not over
   if (!gameOver) {
     drawCourt();
+    updatePlayerPositions(); // <-- This ensures players actually move
   }
   
   // Always draw players and ball
@@ -55,19 +62,22 @@ function draw() {
   drawBall();
   checkBounce();
   
+  // Debug text
   fill(255);
   textSize(12);
   text(debugText, 10, 15);
   
+  // Game Over Screen
   if (gameOver) {
     fill(255, 0, 0);
     textAlign(CENTER, CENTER);
     textSize(20);
     text(debugText, width/2, height/2);
-    noLoop();
+    noLoop(); // Stop draw() from looping
   }
 }
 
+// Updates player positions if movement keys are pressed
 function updatePlayerPositions() {
   // Move player 1 (left player)
   if (aPressed && player1 > player1MinPos) {
@@ -106,6 +116,7 @@ function drawBall() {
     fill(255, 187, 0);
     rect(ball * 20, 20, 18, 18);
     
+    // Move the ball if it's time and not in a bounce state
     if (!bounceActive && frameCount - ballTimer >= ballSpeed) {
       moveBall();
     }
@@ -116,11 +127,11 @@ function moveBall() {
   if (frameCount - ballTimer >= ballSpeed) {
     movementStartFrame = frameCount;
     
-    // Gradually slow down the ball (increase ballSpeed value)
+    // Gradually slow down the ball (increase ballSpeed)
     ballSpeed = min(ballSpeed + speedDecayRate, maxSpeed);
     console.log("Current speed:", ballSpeed);
     
-    // Check if ball becomes too slow
+    // Check if ball is too slow
     if (ballSpeed >= maxSpeed) {
       gameOver = true;
       let middlePoint = floor(gridSize/2);
@@ -137,6 +148,7 @@ function moveBall() {
     updateDebugText();
   }
   
+  // Check if ball hits a player
   if (ballDirection === -1 && ball <= player1) {
     ball = player1;
     bounceActive = true;
@@ -193,17 +205,17 @@ function keyReleased() {
 }
 
 function updateDebugText() {
-  let currentPlayer = ballDirection === -1 ? "left" : "right";
+  let currentPlayer = (ballDirection === -1) ? "left" : "right";
   debugText = `Taps: ${tapCount}, Speed: ${ballSpeed.toFixed(1)} (${currentPlayer} player)`;
 }
 
 function checkBounce() {
   if (bounceActive) {
     if (ball === player1 && wPressed) {
-      performBounce('left');
+      performBounce("left");
     }
     else if (ball === player2 && iPressed) {
-      performBounce('right');
+      performBounce("right");
     }
     else if (frameCount - ballTimer >= bounceWindow) {
       gameOver = true;
@@ -267,11 +279,11 @@ function resetRally() {
   debugText = "";
   
   // Reset player positions randomly within their boundaries
-  player1 = floor(random(player1MinPos, player1MaxPos -5));
+  player1 = floor(random(player1MinPos, player1MaxPos - 5));
   player2 = floor(random(player2MinPos + 5, player2MaxPos + 1));
   
   if (firstRally) {
-    ballDirection = random() < 0.5 ? -1 : 1;
+    ballDirection = (random() < 0.5) ? -1 : 1;
   }
   
   // Initial speed and decay rate
