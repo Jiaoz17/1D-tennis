@@ -23,7 +23,7 @@ let ballDirection = 0;
 let ballSpeed = 5;        
 let ballTimer = 0;        
 let speedDecayRate = 0.15;
-let maxSpeed = 12;       
+let maxSpeed = 15;       
 
 // Bounce mechanics
 let bounceActive = false; 
