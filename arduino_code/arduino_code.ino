@@ -20,6 +20,8 @@ bool keyA = OFF;
 bool keyB = OFF;
 bool keyX = OFF;
 bool keyY = OFF;
+bool keyZ = OFF;
+bool keyC = OFF;
 
 void setup()
 {
@@ -34,6 +36,10 @@ void setup()
   pinMode(7, INPUT_PULLUP);
   pinMode(8, INPUT_PULLUP);
 
+  pinMode(15, INPUT_PULLUP);
+  pinMode(14, INPUT_PULLUP);
+  pinMode(16, INPUT_PULLUP);
+
   // start the keyboard
   Keyboard.begin();
 }
@@ -47,7 +53,7 @@ void loop()
   if ((digitalRead(4) == HIGH) && keyA == OFF)
   {
     keyA = ON;
-    Keyboard.write(97); // A
+    Keyboard.write(108); // A
   }
   if (digitalRead(4) == LOW)
   {
@@ -57,21 +63,54 @@ void loop()
   if ((digitalRead(7) == HIGH) && keyB == OFF)
   {
     keyB = ON;
-    Keyboard.write(100); // D
+    Keyboard.write(106); // D
   }
   if (digitalRead(7) == LOW)
   {
     keyB = OFF;
   }
 
-  if ((digitalRead(8) == HIGH) && keyX == OFF)
+  if ((digitalRead(8) == HIGH) && keyC == OFF)
   {
-    keyX = ON;
-    Keyboard.write(119); // W
+    keyC = ON;
+    Keyboard.write(105); // W
   }
   if (digitalRead(8) == LOW)
   {
+    keyC = OFF;
+  }
+////
+
+    if ((digitalRead(16) == HIGH) && keyZ == OFF)
+  {
+    keyZ = ON;
+    Keyboard.write(97); // L
+  }
+  if (digitalRead(16) == LOW)
+  {
+    keyZ = OFF;
+  }
+
+    if ((digitalRead(14) == HIGH) && keyX == OFF)
+  {
+    keyX = ON;
+    Keyboard.write(100); // J
+  }
+  if (digitalRead(14) == LOW)
+  {
     keyX = OFF;
   }
+
+    if ((digitalRead(15) == HIGH) && keyY == OFF)
+  {
+    keyY = ON;
+    Keyboard.write(119); // I
+  }
+  if (digitalRead(15) == LOW)
+  {
+    keyY = OFF;
+  }
+
+
 
 }
