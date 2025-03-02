@@ -1,12 +1,12 @@
-let gridSize = 26;    // Number of grids 
+let gridSize = 27;    
 let player1 = 2;      
 let player2 = 23;     
 
 // Movement limits for players (grid indices)
-let player1MinPos = 2;
+let player1MinPos = 0;
 let player1MaxPos = 12;
-let player2MinPos = 13;
-let player2MaxPos = 23;
+let player2MinPos = 14;
+let player2MaxPos = 26;
 
 // Ball & speed variables
 let ball = 0;             
@@ -18,7 +18,7 @@ let maxSpeed = 15;
 
 // Bounce mechanics
 let bounceActive = false; 
-let bounceWindow = 40;    
+let bounceWindow = 20;    
 let firstRally = true;    
 let gameOver = false;
 let lastHitPlayer = "none"; // Track the last player that hit the ball
@@ -41,12 +41,21 @@ let sliderForceValue = 0;   // The extracted force value
 
 // Crowd variables
 let spectatorSize;  
-let childSize;      
-let eyeSize;        
 let crowdRows = 2;  
+let sideRows = 6;   // Number of rows for U-shape sides
+
+// Add these variables at the top of the file with the other game variables
+let winAnimation = false;
+let winningPlayer = ""; // "left" or "right"
+let animationStartTime = 0;
+let animationDuration = 3000; // 3 seconds in milliseconds
+let flickerRate = 150; // milliseconds between flicker
+let lastFlickerTime = 0;
+let courtVisible = true;
 
 // Debug
 let debugText = "";
+let textColor = [61, 14, 35]; 
 
 function setup() {
   createCanvas(windowWidth, windowHeight);
@@ -59,55 +68,95 @@ function windowResized() {
   resizeCanvas(windowWidth, windowHeight);
 }
 
-// Put a clear debug message when checking state
+
 function draw() {
   
   background(61, 145, 35);
   
   // Calculate dimensions
-  let maxCellSize = min(width / (gridSize + 4), height / (12 + 4));
+  // Add more margin by reducing the cell size
+  let maxCellSize = min(width / (gridSize + 12), height / (12 + 12));
   let cellSize = maxCellSize;
   let fieldWidth = cellSize * gridSize;
   let courtStartX = (width - fieldWidth) / 2;
-  let fieldHeight = cellSize * 5;
+  let fieldHeight = cellSize; // Single row height
   
-  spectatorSize = cellSize * 0.8;
-  childSize = spectatorSize * 0.6;
-  eyeSize = spectatorSize * 0.2;
+  spectatorSize = cellSize;
   
   let courtOffsetY = height / 2;
-  let topCrowdY = spectatorSize;
-  let bottomCrowdY = height - (crowdRows * spectatorSize * 1.5);
+  
+  // Position crowd at the edges of the screen
+  let topCrowdY = 0; // At the very top edge
+  let bottomCrowdY = height - (spectatorSize * 1.2); // At the very bottom edge
 
-  // Draw background field
+  // Draw white border squares first
+  fill(255);
   noStroke();
-  fill(61, 120, 30);
-  rect(courtStartX, courtOffsetY - fieldHeight/2, fieldWidth, fieldHeight);
   
-  // Draw three field lines
-  stroke(255);
-  // Side 
-  strokeWeight(1.5);
-  line(courtStartX - cellSize/20, courtOffsetY - fieldHeight/2, courtStartX - cellSize/20, courtOffsetY + fieldHeight/2); // Left
-  line(courtStartX + fieldWidth + cellSize/20, courtOffsetY - fieldHeight/2, courtStartX + fieldWidth + cellSize/20, courtOffsetY + fieldHeight/2); // Right
-  // Middle
-  strokeWeight(1.5);
-  line(courtStartX + fieldWidth/2, courtOffsetY - fieldHeight/2, courtStartX + fieldWidth/2, courtOffsetY + fieldHeight/2); // Middle
-
-  // Draw court squares on top
-  drawCourt(cellSize, courtOffsetY);
-  
-  if (!gameOver) {
-    updatePlayerPositions();
+  // ONE row of white squares above the court (changed from two)
+  for (let i = 0; i < gridSize; i++) {
+    rect(courtStartX + i * cellSize, courtOffsetY - cellSize * 1.5, cellSize - 2, cellSize - 2);
   }
-
-  // Draw crowd, players and ball
-  drawCrowd(cellSize, topCrowdY - crowdRows * spectatorSize, 'red', true);
-  drawCrowd(cellSize, bottomCrowdY, 'blue', false);
-  drawPlayers(cellSize, courtOffsetY);
   
-  // Core game logic - handle in this order
-  if (!gameOver) {
+  // ONE row of white squares below the court (changed from two)
+  for (let i = 0; i < gridSize; i++) {
+    rect(courtStartX + i * cellSize, courtOffsetY + cellSize * 0.5, cellSize - 2, cellSize - 2);
+  }
+  
+  // Calculate vertical positions for end lines
+  // We now need 3 squares (one for the playing line, one above, one below)
+  let verticalStart = -1;
+  let verticalCount = 3;
+  
+  // Left column - 3 white squares with middle one at playing line
+  for (let i = 0; i < verticalCount; i++) {
+    // Position squares so the middle one (i=1) aligns with the playing line (courtOffsetY - cellSize/2)
+    let yPos = courtOffsetY - cellSize/2 + (verticalStart + i) * cellSize;
+    rect(courtStartX - cellSize, yPos, cellSize - 2, cellSize - 2);
+  }
+  
+  // Right column - 3 white squares with middle one at playing line
+  for (let i = 0; i < verticalCount; i++) {
+    // Position squares so the middle one (i=1) aligns with the playing line (courtOffsetY - cellSize/2)
+    let yPos = courtOffsetY - cellSize/2 + (verticalStart + i) * cellSize;
+    rect(courtStartX + fieldWidth, yPos, cellSize - 2, cellSize - 2);
+  }
+  
+  // Check if we're in win animation state
+  if (winAnimation) {
+    // Check if animation time is over
+    if (millis() - animationStartTime > animationDuration) {
+      winAnimation = false;
+    } else {
+      // Handle the flicker effect
+      if (millis() - lastFlickerTime > flickerRate) {
+        courtVisible = !courtVisible;
+        lastFlickerTime = millis();
+      }
+      
+        // Draw court with winning player color
+        drawWinCourt(cellSize, courtOffsetY, courtStartX, courtVisible);
+      }
+    } else {
+      // Regular court drawing
+      drawCourt(cellSize, courtOffsetY);
+    }
+  
+    if (!gameOver) {
+      updatePlayerPositions();
+    }
+  
+    // Only draw players and ball if not in win animation
+    if (!winAnimation) {
+      drawPlayers(cellSize, courtOffsetY);
+      drawBall(cellSize, courtOffsetY);
+    }
+  
+    // Draw crowd, players and ball
+    drawUShapedCrowd(cellSize, topCrowdY, bottomCrowdY, width, height);
+  
+    // Core game logic - handle in this order
+    if (!gameOver) {
     // 1. Handle player inputs for bounces
     handleBounce();
     
@@ -120,38 +169,33 @@ function draw() {
     }
     
     // Show important game state info for debugging
-    fill(255);
+    fill(textColor[0], textColor[1], textColor[2]);
     textSize(10);
-    text(`Ball: ${ball.toFixed(1)}, Dir: ${ballDirection}, Last hit: ${lastHitPlayer}`, 10, 30);
-    text(`Slider Input: ${sliderInputBuffer}`, 10, 50);
+    text(`Ball: ${ball.toFixed(1)}, Dir: ${ballDirection}, Last hit: ${lastHitPlayer}`, 10, 450);
+    text(`Slider Input: ${sliderInputBuffer}`, 10, 480);
   }
   
-  // Draw the ball (after logic updates)
+  // Draw the ball 
   drawBall(cellSize, courtOffsetY);
 
   // Main debug text - center large text for important messages
-  textAlign(CENTER, CENTER);
-  fill(255, 0, 0);
-  textSize(24);
-  text(debugText, width / 2, height / 2 - 50);
+  textAlign(LEFT, CENTER);
+  fill(textColor[0], textColor[1], textColor[2]);
+  textSize(10);
+  text(debugText, 10, 500);
   
   // Reset text alignment for other text
   textAlign(LEFT, TOP);
-  fill(255);
+  fill(textColor[0], textColor[1], textColor[2]);
   textSize(12);
-  text("Game controls: Left player (patterns like 5w4w3w2w=fastest, 2w=slowest, A, D) - Right player (I, J, L)", 10, 15);
+  text("Game controls: Left player (patterns like 5w4w3w2w=fastest, 2w=slowest, A, D) - Right player (I, J, L)", 10, 520);
 
   if (gameOver) {
     // Display game over message prominently
-    fill(255, 0, 0);
+    fill(textColor[0], textColor[1], textColor[2]);
     textAlign(CENTER, CENTER);
-    textSize(32);
-    text(debugText, width / 2, height / 2);
-    
-    textSize(16);
-    fill(255);
-    text("Press SPACE to restart", width / 2, height / 2 + 40);
-    noLoop();
+    textSize(10);
+    text(debugText, width / 2, height / 2-80);
   }
 }
 
@@ -165,6 +209,14 @@ function drawCourt(cellSize, offsetY) {
   for (let i = 0; i < gridSize; i++) {
     rect(courtStartX + i * cellSize, offsetY - cellSize/2, cellSize - 2, cellSize - 2);
   }
+  
+  // Draw middle line using a white square - exactly at position gridSize/2
+  let middlePos = Math.floor(gridSize/2);
+  fill(255);
+  rect(courtStartX + middlePos * cellSize, offsetY - cellSize/2, cellSize - 2, cellSize - 2);
+  
+  // Log court dimensions to ensure they're equal
+  console.log(`Court dimensions: Left side: ${middlePos} squares, Right side: ${gridSize - middlePos - 1} squares`);
 }
 
 function drawPlayers(cellSize, offsetY) {
@@ -180,70 +232,155 @@ function drawPlayers(cellSize, offsetY) {
   rect(courtStartX + player2 * cellSize, offsetY - cellSize/2, cellSize - 2, cellSize - 2);
 }
 
+function drawWinCourt(cellSize, offsetY, courtStartX, visible) {
+  if (!visible) return; // Skip drawing when flickering
+  
+  noStroke();
+  
+  // Determine the fill color based on the winning player
+  if (winningPlayer === "left") {
+    fill(181, 42, 42); // Red for left player
+  } else {
+    fill(42, 107, 181); // Blue for right player
+  }
+  
+  // Draw all court squares with winning color
+  for (let i = 0; i < gridSize; i++) {
+    rect(courtStartX + i * cellSize, offsetY - cellSize/2, cellSize - 2, cellSize - 2);
+  }
+  
+  // Keep the middle line white
+  let middlePos = Math.floor(gridSize/2);
+  fill(255);
+  rect(courtStartX + middlePos * cellSize, offsetY - cellSize/2, cellSize - 2, cellSize - 2);
+}
+
+function getBallColor() {
+  // Map the ball speed to a brightness value
+  // ballSpeed ranges from initial value (5) to maxSpeed (15)
+  // Lower ballSpeed = faster ball movement
+  
+  // Invert the scale so lower values (faster) give brighter colors
+  // Map from [maxSpeed, initialSpeed] to [0.3, 1.0] for brightness
+  let brightness = map(ballSpeed, maxSpeed, 5, 0.3, 1.0);
+  brightness = constrain(brightness, 0.3, 1.0);
+  
+  // Use the brightness to adjust the ball's yellow color
+  // Base yellow color: 255, 187, 0
+  let r = 255 * brightness;
+  let g = 187 * brightness;
+  let b = 0;  // Keep blue at 0 for pure yellow
+  
+  return [r, g, b];
+}
+
 function drawBall(cellSize, offsetY) {
   let fieldWidth = cellSize * gridSize;
   let courtStartX = (width - fieldWidth) / 2;
+
+   // Get color based on ball speed
+  let ballColor = getBallColor();
   
-  // Check if ball is outside the field
-  if (ball < 0 || ball >= gridSize) {
-    ballOutsideField = true;
-    fill(255, 0, 0); // Red ball for outside field
-  } else {
-    fill(255, 187, 0); // Normal yellow ball
-  }
+  // Apply the color
+  fill(ballColor[0], ballColor[1], ballColor[2]);
+
   
-  // Draw the ball (constrained for visibility)
-  let visibleBall = constrain(ball, -1, gridSize);
-  rect(courtStartX + visibleBall * cellSize, offsetY - cellSize/2, cellSize - 2, cellSize - 2);
+  // Calculate the ball's position without constraining it
+  let ballX = courtStartX + ball * cellSize;
+  rect(ballX, offsetY - cellSize/2, cellSize - 2, cellSize - 2);
 }
 
-function drawCrowd(cellSize, startY, team, isTop) {
+function drawUShapedCrowd(cellSize, topY, bottomY, screenWidth, screenHeight) {
   let spacing = spectatorSize * 1.2;
-  let spectatorsPerRow = gridSize;
-  let fieldWidth = cellSize * gridSize;
-  let startX = (width - (spectatorsPerRow * spacing)) / 2;
+  let pixelSpacing = spectatorSize * 2.1; // Width of two spectators together
   
-  for (let row = 0; row < crowdRows; row++) {
-    for (let i = 0; i < spectatorsPerRow; i++) {
-      let x = startX + (i * spacing);
-      let y = startY + (row * spacing);
-      
-      // Draw adult spectator
-      noStroke();
-      fill(team === 'red' ? color(181, 42, 42) : color(42, 107, 181));
-      rect(x, y, spectatorSize, spectatorSize);
-      
-      // Calculate eye positions based on ball position and goals
-      let middlePoint = gridSize / 2;
-      let lookingRight = true;
-      
-      // For red team (top)
-      if (team === 'red') {
-        lookingRight = ball < middlePoint;
-      }
-      // For blue team (bottom)
-      else {
-        lookingRight = ball > middlePoint;
-      }
-      
-      let eyeSpacing = eyeSize * 2;
-      let leftEyeX = x + spectatorSize * (lookingRight ? 0.4 : 0.2);
-      let rightEyeX = leftEyeX + eyeSpacing;
-      let eyeY = y + spectatorSize * 0.4;
-      
-      // Draw eyes
-      fill(255);
-      circle(leftEyeX, eyeY, eyeSize);
-      circle(rightEyeX, eyeY, eyeSize);
-      
-      // Draw child if space allows
-      if (i < spectatorsPerRow - 1) {
-        let childX = x + spectatorSize + (spacing - childSize) / 2;
-        let childY = y + (spectatorSize - childSize) / 2;
-        fill(team === 'red' ? color(221, 82, 82) : color(82, 147, 221));
-        rect(childX, childY, childSize, childSize);
-      }
+  // Calculate if ball is in left or right half
+  let inLeftHalf = ball < gridSize / 2;
+  
+  // Draw U-shaped crowd with spectators grouped in pairs
+  
+  // Top row (horizontal part of U) - at the very top edge
+  for (let i = 0; i < screenWidth; i += pixelSpacing) {
+    // Draw grouped spectators (left and right spectator in each group)
+    // Determine which half they're in for brightness
+    let isInLeftHalf = i < screenWidth / 2;
+    
+    // Left spectator in group
+    let leftBrightness = (isInLeftHalf && inLeftHalf) || (!isInLeftHalf && !inLeftHalf) ? 1.3 : 0.7;
+    fill(181 * leftBrightness, 42 * leftBrightness, 42 * leftBrightness); // Red team
+    rect(i, topY, spectatorSize, spectatorSize);
+    
+    // Right spectator in group
+    let rightBrightness = (isInLeftHalf && inLeftHalf) || (!isInLeftHalf && !inLeftHalf) ? 1.3 : 0.7;
+    fill(181 * rightBrightness, 42 * rightBrightness, 42 * rightBrightness); // Red team
+    rect(i + spectatorSize * 1.1, topY, spectatorSize, spectatorSize);
+  }
+  
+  // Bottom row (horizontal part of U) - at the very bottom edge
+  for (let i = 0; i < screenWidth; i += pixelSpacing) {
+    // Determine which half they're in for brightness
+    let isInLeftHalf = i < screenWidth / 2;
+    
+    // Left spectator in group
+    let leftBrightness = (isInLeftHalf && inLeftHalf) || (!isInLeftHalf && !inLeftHalf) ? 1.3 : 0.7;
+    fill(42 * leftBrightness, 107 * leftBrightness, 181 * leftBrightness); // Blue team
+    rect(i, bottomY, spectatorSize, spectatorSize);
+    
+    // Right spectator in group
+    let rightBrightness = (isInLeftHalf && inLeftHalf) || (!isInLeftHalf && !inLeftHalf) ? 1.3 : 0.7;
+    fill(42 * rightBrightness, 107 * rightBrightness, 181 * rightBrightness); // Blue team
+    rect(i + spectatorSize * 1.1, bottomY, spectatorSize, spectatorSize);
+  }
+  
+  // Left vertical part of the U
+  for (let i = 0; i < sideRows; i++) {
+    // Draw left side from top to bottom
+    let yPos = topY + spectatorSize + i * spacing;
+    
+    // Alternate between red (top half) and blue (bottom half)
+    let isTopHalf = yPos < screenHeight / 2;
+    let brightness = inLeftHalf ? 1.3 : 0.7;
+    
+    if (isTopHalf) {
+      // Red team on top half
+      fill(181 * brightness, 42 * brightness, 42 * brightness);
+    } else {
+      // Blue team on bottom half
+      fill(42 * brightness, 107 * brightness, 181 * brightness);
     }
+    
+    // Left spectator in group
+    rect(0, yPos, spectatorSize, spectatorSize);
+    
+    // Right spectator in group
+    rect(spectatorSize * 1.1, yPos, spectatorSize, spectatorSize);
+  }
+  
+  // Right vertical part of the U
+  for (let i = 0; i < sideRows; i++) {
+    // Draw right side from top to bottom
+    let yPos = topY + spectatorSize + i * spacing;
+    
+    // Alternate between red (top half) and blue (bottom half)
+    let isTopHalf = yPos < screenHeight / 2;
+    let brightness = inLeftHalf ? 0.7 : 1.3;
+    
+    if (isTopHalf) {
+      // Red team on top half
+      fill(181 * brightness, 42 * brightness, 42 * brightness);
+    } else {
+      // Blue team on bottom half
+      fill(42 * brightness, 107 * brightness, 181 * brightness);
+    }
+    
+    // Position at right edge of screen
+    let xPos = screenWidth - spectatorSize * 2.2;
+    
+    // Left spectator in group
+    rect(xPos, yPos, spectatorSize, spectatorSize);
+    
+    // Right spectator in group
+    rect(xPos + spectatorSize * 1.1, yPos, spectatorSize, spectatorSize);
   }
 }
 
@@ -280,7 +417,7 @@ function checkPlayerCollision() {
 function handleBounce() {
   if (bounceActive) {
     // Left player hits the ball
-    if (ball === 2 && (key === 'w' || key === 'W') && firstRally) {
+    if (ball === 3 && (key === 'w' || key === 'W') && firstRally) {
       firstRally = false;
       performBounce("left");
       sliderInputBuffer = ""; // Clear input buffer after serve
@@ -358,11 +495,20 @@ function moveBall() {
     return;
   }
   
-  // Ball goes outside field - IMMEDIATELY determine game outcome
+  // Ball goes outside field - ALLOW IT TO CONTINUE MOVING VISUALLY
+  // but trigger game over condition
   if (ball < 0 || ball >= gridSize) {
-    ballOutsideField = true; // Ensure this flag is set
-    determineGameOutcome(); // Trigger game over
-    return;
+    if (!ballOutsideField) {
+      ballOutsideField = true;
+      
+      // Allow the ball to continue moving for a few more frames
+      // before stopping the game completely
+      setTimeout(() => {
+        gameOver = true;
+        determineGameOutcome();
+      }, 300); // Short delay to see the ball move out
+    }
+    // Don't return here - this allows the ball to keep moving visually
   }
 }
 
@@ -426,6 +572,8 @@ function performBounce(player) {
   firstRally = false;
 }
 
+
+
 function determineGameOutcome() {
   gameOver = true;
   
@@ -448,7 +596,13 @@ function determineGameOutcome() {
       debugText = "Ball Stopped in Right Field - Right Player Loses!";
     }
   }
+   // Start the win animation
+  winAnimation = true;
+  animationStartTime = millis();
+  lastFlickerTime = millis();
+  courtVisible = true;
 }
+
 
 function keyPressed() {
   // Space bar to restart game
@@ -550,8 +704,8 @@ function updateDebugText() {
 }
 
 function resetRally() {
-  // Fixed player positions
-  player1 = 1;
+  // Reset states
+  player1 = 2;
   player2 = 24;
   
   // Always clear the slider input buffer when resetting
@@ -560,7 +714,7 @@ function resetRally() {
   
   // Randomly place ball at either player1+1 or player2-1
   if (random() < 0.5) {
-    ball = 2;  // Next to left player
+    ball = 3;  // Next to left player
     ballDirection = -1;  // Initially moving left (will be reversed when hit)
   } else {
     ball = 23; // Next to right player
@@ -596,9 +750,13 @@ function resetRally() {
   sliderInputBuffer = "";
   
   // Set appropriate debug text based on ball position
-  if (ball === 2) {
+  if (ball === 3) {
     debugText = "Game starts when left player enters a pattern like 5w4w3w2w (fastest) or 2w (slowest)";
   } else {
     debugText = "Game starts when right player presses I";
   }
+  
+   // Reset win animation
+  winAnimation = false;
+  winningPlayer = "";
 }
